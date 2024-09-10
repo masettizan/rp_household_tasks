@@ -73,7 +73,22 @@ class FrameListener(Node):
             return self.get_position(total_time)
         else:
             return self.position.transform
+class image_converter(Node):
+    def __init__(self):
+        super().__init__("image_converter")
+        self.bridge = CvBridge()
+        self.color_sub = self.create_subscription(Image, '/camera/color/image_raw', self.callback, 10)
 
+    def callback(self,data):
+        # try:
+        cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        # except:
+        #     cv_image = self.bridge.imgmsg_to_cv2(data)
+
+        print(type(cv_image)) # numpy
+        print(cv_image.shape) 
+        print(cv2.imwrite('/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/image.png', cv_image))
+        
 # robot class
 class GatherData(Node):
 
@@ -84,23 +99,27 @@ class GatherData(Node):
 
         # keep communicating updated base_link position
         self.base_link_position = FrameListener()
+        self.ic = image_converter()
+        # self.image_subscriber = self.create_subscription(Image, '/camera/color/image', self.get_image, 10)
+
         
+
+        # self.cv_image = None
+        # self.bridge = CvBridge()
 
         exe = rclpy.executors.MultiThreadedExecutor()
         exe.add_node(self.base_link_position)
+        # exe.add_node(self.image_subscriber)
         exe_thread = threading.Thread(target= exe.spin, daemon=True)
         exe_thread.start()
 
         self.set_locations()
 
-        self.bridge = CvBridge()
-        self.image_subscriber = self.create_subscription(Image, '/camera/color/image', self.get_image, 10)
-        self.image_subscriber
 
         xbox_controller = gc.GamePadController()
         xbox_controller.start()
         
-        print("Press 'Enter' to start program.")
+        self.get_logger().info("Press 'Enter' to start program.")
         while True:
             controller_state = xbox_controller.get_state()
             if controller_state['right_pad_pressed']: # Returns True if any key pressed
@@ -186,9 +205,10 @@ class GatherData(Node):
         else:
             self.get_logger().error('something went wrong -_-')
 
-    def get_image(self, data):
-        path = "/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/"
-        cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+    # def get_image(self, data):
+    #     path = "/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/"
+    #     self.cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+    #     self.get_logger().info("HERE I AM")
 
 
     def main(self):
@@ -197,7 +217,10 @@ class GatherData(Node):
         self.a_to_b()
 
         #scan with camera
-        cv2.imwrite('/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/image.png', cv_image)
+        time.sleep(1)
+        rclpy.spin_once(self.ic)
+        # self.get_logger().info(f"cv image: {self.cv_image} ")
+        # cv2.imwrite('/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/image.png', self.cv_image)
 
         # B -> C
         self.b_to_c()
