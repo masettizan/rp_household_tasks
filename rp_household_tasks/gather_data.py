@@ -82,6 +82,7 @@ class GatherData(Node):
 
         # keep communicating updated base_link position
         self.base_link_position = FrameListener()
+        
 
         exe = rclpy.executors.MultiThreadedExecutor()
         exe.add_node(self.base_link_position)
@@ -89,6 +90,10 @@ class GatherData(Node):
         exe_thread.start()
 
         self.set_locations()
+
+        self.bridge = CvBridge()
+        self.image_subscriber = self.create_subscription(Image, '/camera/color/image', self.get_image, 10)
+        self.image_subscriber
 
         activation = input("Press 'Enter' to start program.")
         if (activation == ""):
@@ -171,9 +176,10 @@ class GatherData(Node):
         else:
             self.get_logger().error('something went wrong -_-')
 
-    def get_image(self):
-        self.bridge = CvBridge()
-        self.image_subscriber = self.create_subscription(Image, '/camera/color/image')
+    def get_image(self, data):
+        path = "/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/"
+        cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+
 
     def main(self):
 
@@ -181,6 +187,7 @@ class GatherData(Node):
         self.a_to_b()
 
         #scan with camera
+        cv2.imwrite('/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/image.png', cv_image)
 
         # B -> C
         self.b_to_c()
