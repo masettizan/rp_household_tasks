@@ -23,6 +23,8 @@ import csv
 import cv2
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
+import stretch_body.gamepad_controller as gc
+
 
 # gives position information about base_link
 class FrameListener(Node):
@@ -95,13 +97,21 @@ class GatherData(Node):
         self.image_subscriber = self.create_subscription(Image, '/camera/color/image', self.get_image, 10)
         self.image_subscriber
 
-        activation = input("Press 'Enter' to start program.")
-        if (activation == ""):
-            #TODO: MAKE ACTRIVATED BY KEY PRESS: 'Enter'
-            self.set_initial_pose() # can assume same initial position
+        xbox_controller = gc.GamePadController()
+        xbox_controller.start()
+        
+        print("Press 'Enter' to start program.")
+        while True:
+            controller_state = xbox_controller.get_state()
+            if controller_state['right_pad_pressed']: # Returns True if any key pressed
+                break
 
-            # Wait for navigation to fully activate, since autostarting nav2
-            self.navigator.waitUntilNav2Active() #does this need intial pose to be set?
+
+        #TODO: MAKE ACTRIVATED BY KEY PRESS: 'Enter'
+        self.set_initial_pose() # can assume same initial position
+
+        # Wait for navigation to fully activate, since autostarting nav2
+        self.navigator.waitUntilNav2Active() #does this need intial pose to be set?
 
     # extract information from csv file containing all possible robot goal locations in EXP 120
     def set_locations(self):

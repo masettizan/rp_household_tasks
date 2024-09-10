@@ -13,8 +13,8 @@ def generate_launch_description():
     stretch_core_path = get_package_share_directory('stretch_core')
     stretch_navigation_path = get_package_share_directory('stretch_nav2')
     navigation_bringup_path = get_package_share_directory('nav2_bringup')
-    map_path = get_package_share_directory('guide_robot_exp')
-
+    map_path = get_package_share_directory('rp_household_tasks')
+    
     teleop_type_param = DeclareLaunchArgument(
         'teleop_type', default_value="joystick", description="how to teleop ('keyboard', 'joystick' or 'none')")
     
@@ -27,21 +27,28 @@ def generate_launch_description():
         'autostart',
         default_value='false',
         description='Whether to autostart lifecycle nodes on launch')
+    
+    # launch camera
+    d435i_launch = IncludeLaunchDescription(
+          PythonLaunchDescriptionSource([os.path.join(
+               stretch_core_path, 'launch'),
+               '/stretch_realsense.launch.py'])
+          )
 
     map_path_param = DeclareLaunchArgument(
         'map',
-        default_value=os.path.join(map_path,
-                                   'map', 'test.yaml'),
+        # default_value=os.path.join(map_path,
+        #                            'map', 'exp120.yaml'),
+        default_value='/home/hello-robot/ament_ws/src/rp_household_tasks/map/exp120.yaml',
         description='Full path to the map.yaml file to use for navigation')
 
-    params_file_param = DeclareLaunchArgument(
+    params_file_param = DeclareLaunchArgument( 
         'params_file',
-        default_value=os.path.join(stretch_navigation_path, 'config', 'nav2_params.yaml'),
+        default_value=os.path.join(stretch_navigation_path, 'config', 'nav2_voxel_params.yaml'),#changed from nav2_params so camera can be used
         description='Full path to the ROS2 parameters file to use for all launched nodes')
 
     rviz_param = DeclareLaunchArgument('use_rviz', default_value='true', choices=['true', 'false'])
 
-    
     stretch_driver_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([stretch_core_path, '/launch/stretch_driver.launch.py']),
         launch_arguments={'mode': 'navigation', 'broadcast_odom_tf': 'True'}.items())
@@ -64,42 +71,25 @@ def generate_launch_description():
     rviz_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([navigation_bringup_path, '/launch/rviz_launch.py']),
         condition=IfCondition(LaunchConfiguration('use_rviz')))
-
-    d435i_launch = IncludeLaunchDescription(
-          PythonLaunchDescriptionSource([os.path.join(
-               stretch_core_path, 'launch'),
-               '/stretch_realsense.launch.py'])
-          )
     
-    stretch_aruco = IncludeLaunchDescription(
-          PythonLaunchDescriptionSource([os.path.join(
-               stretch_core_path, 'launch'),
-               '/stretch_aruco.launch.py'])
-          )
-    
-    rviz_config_path = os.path.join(stretch_core_path, 'rviz', 'stretch_simple_test.rviz')
-    
-    rviz_node = Node(
-        package='rviz2',
-        executable='rviz2',
-        arguments=['-d', rviz_config_path],
-        output='screen',
-    )
-
     gather_data_node = Node(
-        package='rp_household_task',
-        executable ='gather_data'
+        package='rp_household_tasks',
+        executable ='gather_data',
         output ='screen'
     )
 
     return LaunchDescription([
+        teleop_type_param,
+        use_sim_time_param,
+        autostart_param,
+        d435i_launch,
+        map_path_param,
+        params_file_param,
+        rviz_param,
         stretch_driver_launch,
         rplidar_launch,
         base_teleop_launch,
         navigation_bringup_launch,
         rviz_launch,
-        d435i_launch,
-        stretch_aruco,
-        rviz_node,
-        gather_data_node
+        gather_data_node,
     ])

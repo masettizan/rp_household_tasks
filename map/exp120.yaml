@@ -1,4 +1,4 @@
-image: exp120.pgm
+image: /home/hello-robot/ament_ws/src/rp_household_tasks/map/exp120.pgm
 mode: trinary
 resolution: 0.05
 origin: [-11.1, -2.49, 0]
