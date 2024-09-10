@@ -33,6 +33,8 @@ def main(args=None):
     rclpy.init()
     ic = image_converter()
     try:
+        for int i in range (10):
+            print(image not updateds)
         rclpy.spin_once(ic)
     except KeyboardInterrupt:
         print("Shutting down")

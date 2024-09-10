@@ -20,6 +20,9 @@ import threading
 import rclpy.executors
 import time
 import csv
+import cv2
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
 
 # gives position information about base_link
 class FrameListener(Node):
@@ -168,17 +171,9 @@ class GatherData(Node):
         else:
             self.get_logger().error('something went wrong -_-')
 
-    def getKey(settings, timeout):
-
-        tty.setraw(sys.stdin.fileno())
-        # sys.stdin.read() returns a string on Linux
-        rlist, _, _ = select([sys.stdin], [], [], timeout)
-        if rlist:
-            key = sys.stdin.read(1)
-        else:
-            key = ''
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
-        return key
+    def get_image(self):
+        self.bridge = CvBridge()
+        self.image_subscriber = self.create_subscription(Image, '/camera/color/image')
 
     def main(self):
 
