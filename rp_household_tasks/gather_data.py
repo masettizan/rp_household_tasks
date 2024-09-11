@@ -85,7 +85,7 @@ class ImageConverter(Node):
 
     def callback(self,data):
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        path_location = '/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/'
+        path_location = '/home/hello-robot/ament_ws/src/rp_household_tasks/img/'
 
         # print(type(cv_image)) # numpy path_location + 'image' + file_ending
         # print(cv_image.shape) 'depth_{}.jpg'.format(count)
