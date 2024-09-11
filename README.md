@@ -3,9 +3,17 @@ and then drive to a thrid locatoin when the right pad on the xbox controller for
 
 Guide to running code: (always remeber to colcon build and source on the first run and after any code change)
 
+- run 'systemctl start --user sunshine' on robot terminal
+
+- moonlight into robot on laptop (make sure on same wifi as robot)
+
+- run 'robot_free_stretch_processes.py' on terminal
+
+- run 'colcon build' and 'source install/setup.bash' on terminal in a workspace
+
 - position robot in it's start position
 
-- run launch file : ros2 launch rp_household_tasks rp_household_tasks.launch.py 
+- run launch file : 'ros2 launch rp_household_tasks rp_household_tasks.launch.py' 
 
 - turn on the xbox controller:
     press home button until the top two sections surrounding it are blue
