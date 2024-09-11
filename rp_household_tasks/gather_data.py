@@ -1,29 +1,27 @@
 #! /usr/bin/env python3
 
-
-import sys
-import termios
-import tty
-
-from numpy import select
-from rclpy.node import Node
-from stretch_nav2.robot_navigator import BasicNavigator, TaskResult
-from sensor_msgs.msg import JointState
-from geometry_msgs.msg import PoseStamped, TransformStamped
-
-from tf2_ros.buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
-from rclpy.time import Time
 import rclpy
-from tf2_ros import TransformException
 import threading
 import rclpy.executors
 import time
 import csv
 import cv2
+import stretch_body.gamepad_controller as gc
+
+from numpy import select
+from rclpy.node import Node
+from rclpy.time import Time
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+from tf2_ros import TransformException
+
+from stretch_nav2.robot_navigator import BasicNavigator, TaskResult
+from sensor_msgs.msg import JointState
+from geometry_msgs.msg import PoseStamped, TransformStamped
+
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-import stretch_body.gamepad_controller as gc
+
 
 
 # gives position information about base_link
