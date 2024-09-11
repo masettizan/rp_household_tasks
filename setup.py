@@ -25,7 +25,6 @@ setup(
     entry_points={
         'console_scripts': [
             'gather_data = rp_household_tasks.gather_data:main',
-            'test = rp_household_tasks.test:main'
         ],
     },
 )
