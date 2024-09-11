@@ -73,21 +73,24 @@ class FrameListener(Node):
             return self.get_position(total_time)
         else:
             return self.position.transform
-class image_converter(Node):
+
+# convert image data to a png
+class ImageConverter(Node):
+
     def __init__(self):
         super().__init__("image_converter")
+
         self.bridge = CvBridge()
         self.color_sub = self.create_subscription(Image, '/camera/color/image_raw', self.callback, 10)
 
     def callback(self,data):
-        # try:
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        # except:
-        #     cv_image = self.bridge.imgmsg_to_cv2(data)
+        path_location = '/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/'
 
-        print(type(cv_image)) # numpy
-        print(cv_image.shape) 
-        print(cv2.imwrite('/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/image.png', cv_image))
+        # print(type(cv_image)) # numpy path_location + 'image' + file_ending
+        # print(cv_image.shape) 'depth_{}.jpg'.format(count)
+        success_status = cv2.imwrite('{}image.png'.format(path_location), cv_image)
+        # print(success_status)
         
 # robot class
 class GatherData(Node):
@@ -99,10 +102,8 @@ class GatherData(Node):
 
         # keep communicating updated base_link position
         self.base_link_position = FrameListener()
-        self.ic = image_converter()
-        # self.image_subscriber = self.create_subscription(Image, '/camera/color/image', self.get_image, 10)
-
-        
+        self.ic = ImageConverter()
+        # self.image_subscriber = self.create_subscription(Image, '/camera/color/image_raw', self.get_image, 10)
 
         # self.cv_image = None
         # self.bridge = CvBridge()
@@ -115,19 +116,18 @@ class GatherData(Node):
 
         self.set_locations()
 
-
         xbox_controller = gc.GamePadController()
         xbox_controller.start()
+        start_button = 'right_pad_pressed'
         
         self.get_logger().info("Press 'Enter' to start program.")
         while True:
-            controller_state = xbox_controller.get_state()
-            if controller_state['right_pad_pressed']: # Returns True if any key pressed
+            controller_state = xbox_controller.get_state() # Updates what buttons are being pressed
+            if controller_state[start_button]: # check if button has been pressed
                 break
 
-
-        #TODO: MAKE ACTRIVATED BY KEY PRESS: 'Enter'
-        self.set_initial_pose() # can assume same initial position
+        # -- shoiuld i move this to before enter is pressed??
+        self.set_initial_pose('A') # can assume same initial position every time 
 
         # Wait for navigation to fully activate, since autostarting nav2
         self.navigator.waitUntilNav2Active() #does this need intial pose to be set?
@@ -143,8 +143,8 @@ class GatherData(Node):
                 self.locations[row['location']] = (row['position_x'], row['position_y'])
 
     # set intial pose to where the robot is currently
-    def set_initial_pose(self):
-        position = self.locations['A']
+    def set_initial_pose(self, start_pos):
+        position = self.locations[start_pos]
         self.get_logger().info(
                 f'initial pose: {position} x: {position[0]} y: {position[1]}'
             )
@@ -171,14 +171,16 @@ class GatherData(Node):
         pose.pose.orientation.w = float(rot_w)
         return pose
     
-    def a_to_b(self):
-        pose_b = self.get_pose(
-            pos_x=self.locations["B"][0], 
-            pos_y=self.locations["B"][1]
+    # go from current position to the target position
+    def source_to_target(self, goal_location):
+        to_pose = self.get_pose(
+            pos_x=self.locations[goal_location][0], 
+            pos_y=self.locations[goal_location][1]
         )
-        pose_b.pose.orientation.w = 1.0
+        to_pose.pose.orientation.w = 1.0
 
-        self.navigator.goToPose(pose_b)
+        self.navigator.goToPose(to_pose)
+        
         while not self.navigator.isTaskComplete():
             position = self.base_link_position.get_position()
 
@@ -188,42 +190,26 @@ class GatherData(Node):
         else:
             self.get_logger().error('something went wrong -_-')
 
-    def b_to_c(self):
-        pose_c = self.get_pose(
-            pos_x=self.locations["C"][0], 
-            pos_y=self.locations["C"][1]
-        )
-        pose_c.pose.orientation.w = 1.0
-
-        self.navigator.goToPose(pose_c)
-        while not self.navigator.isTaskComplete():
-            position = self.base_link_position.get_position()
-
-        result = self.navigator.getResult()
-        if result == TaskResult.SUCCEEDED:
-            self.get_logger().info("yipee successfully got to position C")
-        else:
-            self.get_logger().error('something went wrong -_-')
-
     # def get_image(self, data):
     #     path = "/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/"
     #     self.cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
     #     self.get_logger().info("HERE I AM")
 
-
+    # run main code
     def main(self):
 
         # A -> B
-        self.a_to_b()
+        self.source_to_target("B")
 
-        #scan with camera
+        # give time to get a still image
         time.sleep(1)
+        # scan with camera and write to file
         rclpy.spin_once(self.ic)
         # self.get_logger().info(f"cv image: {self.cv_image} ")
         # cv2.imwrite('/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/image.png', self.cv_image)
 
         # B -> C
-        self.b_to_c()
+        self.source_to_target("C")
 
 def main():
     try:
