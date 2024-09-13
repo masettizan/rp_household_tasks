@@ -118,7 +118,7 @@ class GatherData(Node):
         xbox_controller.start()
         start_button = 'right_pad_pressed'
         
-        self.get_logger().info("Press 'Enter' to start program.")
+        self.get_logger().info("Press 'right pad' to start program.")
         while True:
             controller_state = xbox_controller.get_state() # Updates what buttons are being pressed
             if controller_state[start_button]: # check if button has been pressed
