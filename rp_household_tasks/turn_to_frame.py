@@ -14,6 +14,7 @@ from rclpy.duration import Duration
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 from tf2_ros import TransformException
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped, TransformStamped
@@ -43,7 +44,7 @@ class FrameListener(Node):
         # self.kb_input = KBHit()
 
         time_period = 0.1 #seconds
-        self.timer = self.create_timer(time_period, self.on_timer)
+        self.timer = self.create_timer(time_period, self.on_timer, callback_group=ReentrantCallbackGroup())
 
     def on_timer(self):
         try:
@@ -113,7 +114,7 @@ class TurnToFrame(Node):
         )
         server_reached = self._follow_joint_trajectory_action_client.wait_for_server(timeout_sec=60.0)
 
-        exe = rclpy.executors.MultiThreadedExecutor()
+        exe = rclpy.executors.MultiThreadedExecutor(num_threads=3)
         exe.add_node(self.frame_position)
         exe.add_node(self)
         exe_thread = threading.Thread(target=exe.spin, daemon=True)
@@ -152,6 +153,7 @@ class TurnToFrame(Node):
 
 
     def on_timer(self):
+        self.get_logger().info(f"PROGRAM IS STOPPED {self.stopped}")
         if self.stopped:
             return
         
