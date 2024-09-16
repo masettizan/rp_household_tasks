@@ -55,7 +55,9 @@ class FrameListener(Node):
                 timeout=Duration(seconds=1.0)
             )
             self.position = position
-
+            self.get_logger().info(
+                f'diff: {position}'
+            )
         except TransformException as ex:
             self.get_logger().info(
                 f'Could not tranform "camera_link" to "{self.frame_param}": {ex}'
@@ -77,11 +79,11 @@ class FrameListener(Node):
         )
         return None
         
-    def change_goal_frame(self):
-        while True:
-            self.get_logger().info(
-                f'put in new frame if you would like to switch goal'
+    def change_goal_frame(self, new_goal):
+        self.get_logger().info(
+                f'NEW GFOAL \n\n\n\n\n'
             )
+        self.frame_param = new_goal
             # if self.kb_input.kbhit(): # Returns True if any key pressed
             #     activation = self.kb_input.getch() # Enter == "\n"
             #     self.frame_param = activation
@@ -138,10 +140,14 @@ class TurnToFrame(Node):
         self.joint_state = joint_state
 
     def turn_to_frame_callback(self, goal_handle):
-        self.get_logger().info("executing turn to frame callback")
-        goal = goal_handle.request()
-        self.frame_position.frame_param = goal.frame
-        self.stopped = goal.stopped
+        self.get_logger().info(f"executing turn to frame callback {goal_handle.request}")
+        self.frame_position.change_goal_frame(goal_handle.request.frame)
+        self.stopped = goal_handle.request.stopped
+
+        self.get_logger().info(f"Changing frame to {self.frame_position.frame_param}")
+        goal_handle.succeed()
+        result = Frame.Result()
+        return result
 
 
 
@@ -151,7 +157,7 @@ class TurnToFrame(Node):
         
         goal_position = FollowJointTrajectory.Goal()
         position = self.frame_position.get_position()
-        self.get_logger().info("WE IN MIN\n\n\n\n\n\n")
+        # self.get_logger().info("WE IN MIN\n\n\n\n\n\n")
 
 
         if position is None:
@@ -170,7 +176,7 @@ class TurnToFrame(Node):
         state = self.joint_state
         # if the state is active
         if (state is not None):
-            self.get_logger().info(f"state: {state}")
+            # self.get_logger().info(f"state: {state}")
             pan_joint_index = state.name.index('joint_head_pan')
             tilt_joint_index = state.name.index('joint_head_tilt')
 
@@ -191,11 +197,11 @@ class TurnToFrame(Node):
             goal_position.trajectory.points = [goal_point]
             goal_position.trajectory.header.stamp = self.get_clock().now().to_msg()
             
-            self.get_logger().info(f"joint info: {goal_point}")
+            # self.get_logger().info(f"joint info: {goal_point}")
 
             #request movement
             self._follow_joint_trajectory_action_client.send_goal_async(goal_position)
-            self.get_logger().info(f"joint info: {pan_joint_goal}, {tilt_joint_goal}")
+            # self.get_logger().info(f"joint info: {pan_joint_goal}, {tilt_joint_goal}")
         
 
 def main():
