@@ -26,7 +26,7 @@ setup(
         'console_scripts': [
             'gather_data = rp_household_tasks.gather_data:main',
             'turn_to_frame = rp_household_tasks.turn_to_frame:main',
-            'client = rp_household_tasks.client:main'
+            'client = rp_household_tasks.test_client:main'
         ],
     },
 )
