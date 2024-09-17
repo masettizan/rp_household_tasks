@@ -46,6 +46,7 @@ class FrameListener(Node):
         time_period = 0.1 #seconds
         self.timer = self.create_timer(time_period, self.on_timer, callback_group=ReentrantCallbackGroup())
 
+    # get difference between camera link and the frame param
     def on_timer(self):
         try:
             now = Time()
@@ -63,9 +64,8 @@ class FrameListener(Node):
             self.get_logger().info(
                 f'Could not tranform "camera_link" to "{self.frame_param}": {ex}'
             )
-        
-        # self.change_goal_frame()
-        
+    
+    # return the position
     def get_position(self, total_time = 0.0):
         total_time = 0
         while (total_time < 5):
@@ -85,11 +85,8 @@ class FrameListener(Node):
                 f'NEW GFOAL \n\n\n\n\n'
             )
         self.frame_param = new_goal
-            # if self.kb_input.kbhit(): # Returns True if any key pressed
-            #     activation = self.kb_input.getch() # Enter == "\n"
-            #     self.frame_param = activation
 
-
+# turn the camera to the frame 
 class TurnToFrame(Node):
 
     def __init__(self):
@@ -106,40 +103,46 @@ class TurnToFrame(Node):
             self.callback, 1
         )
         self.joint_state_subscriber
+        
         # connect to action client to move camera
         self._follow_joint_trajectory_action_client = ActionClient(
             self, 
             FollowJointTrajectory, 
-            '/stretch_controller/follow_joint_trajectory'
+            '/stretch_controller/follow_joint_trajectory',
         )
         server_reached = self._follow_joint_trajectory_action_client.wait_for_server(timeout_sec=60.0)
 
-        exe = rclpy.executors.MultiThreadedExecutor(num_threads=3)
+        # spin multiple things
+        exe = rclpy.executors.MultiThreadedExecutor(num_threads=4)
         exe.add_node(self.frame_position)
         exe.add_node(self)
         exe_thread = threading.Thread(target=exe.spin, daemon=True)
         exe_thread.start()
 
-
+        # connect to the motion action server
         if not server_reached:
             self.get_logger().error('Unable to connect to action server, time out was exceeded')
             sys.exit()
 
         self.stopped = False
         
+        # establish action server to start/stop/change frame
         self._turn_to_frame_action_server = ActionServer(
             self,
             Frame,
             '/turn_to_frame_status',
-            self.turn_to_frame_callback
+            self.turn_to_frame_callback,
+            callback_group=ReentrantCallbackGroup()
         )
         
         time_period = 0.1 #seconds
         self.timer = self.create_timer(time_period, self.on_timer)
 
+    # set joint_state to global variable
     def callback(self, joint_state):
         self.joint_state = joint_state
 
+    # action server callback, handle request
     def turn_to_frame_callback(self, goal_handle):
         self.get_logger().info(f"executing turn to frame callback {goal_handle.request}")
         self.frame_position.change_goal_frame(goal_handle.request.frame)
@@ -148,22 +151,48 @@ class TurnToFrame(Node):
         self.get_logger().info(f"Changing frame to {self.frame_position.frame_param}")
         goal_handle.succeed()
         result = Frame.Result()
+        time.sleep(0.0)
         return result
 
+    def move_to(self, joint_state: JointState, camera_pan: float, camera_tilt: float):
+        goal_position = FollowJointTrajectory.Goal()
 
+        pan_joint_index = joint_state.name.index('joint_head_pan')
+        tilt_joint_index = joint_state.name.index('joint_head_tilt')
 
+        # trajectory point motion
+        goal_point = JointTrajectoryPoint()
+
+        duration = Duration(seconds=0.1)
+        goal_point.time_from_start = duration.to_msg()
+
+        # goal location for pan and tilt 
+        pan_joint_goal = camera_pan + joint_state.position[pan_joint_index]
+        tilt_joint_goal = camera_tilt + joint_state.position[tilt_joint_index]
+
+        goal_point.positions = [pan_joint_goal, tilt_joint_goal]
+        
+        # set goal position
+        goal_position.trajectory.joint_names = ['joint_head_pan', 'joint_head_tilt']
+        goal_position.trajectory.points = [goal_point]
+        goal_position.trajectory.header.stamp = self.get_clock().now().to_msg()
+        
+        # self.get_logger().info(f"joint info: {goal_point}")
+
+        #request movement
+        self._follow_joint_trajectory_action_client.send_goal_async(goal_position)
+        # self.get_logger().info(f"joint info: {pan_joint_goal}, {tilt_joint_goal}")
+
+    # every 0.1 seconds run main
     def on_timer(self):
         self.get_logger().info(f"PROGRAM IS STOPPED {self.stopped}")
         if self.stopped:
             return
-        
-        goal_position = FollowJointTrajectory.Goal()
+    
         position = self.frame_position.get_position()
-        # self.get_logger().info("WE IN MIN\n\n\n\n\n\n")
 
-
-        if position is None:
-            return # dont look: haven't seen TF in 5 seconds
+        if position is None: # dont look: haven't seen TF in 5 seconds
+            return 
 
         # calculate camera pan movement -- is z or y needed?
         camera_pan = -1 * atan2(position.translation.z, position.translation.x)
@@ -178,39 +207,13 @@ class TurnToFrame(Node):
         state = self.joint_state
         # if the state is active
         if (state is not None):
-            # self.get_logger().info(f"state: {state}")
-            pan_joint_index = state.name.index('joint_head_pan')
-            tilt_joint_index = state.name.index('joint_head_tilt')
-
-            # trajectory point motion
-            goal_point = JointTrajectoryPoint()
-
-            duration = Duration(seconds=0.1)
-            goal_point.time_from_start = duration.to_msg()
-
-            # goal location for pan and tilt 
-            pan_joint_goal = camera_pan + state.position[pan_joint_index]
-            tilt_joint_goal = camera_tilt + state.position[tilt_joint_index]
-
-            goal_point.positions = [pan_joint_goal, tilt_joint_goal]
-            
-            # set goal position
-            goal_position.trajectory.joint_names = ['joint_head_pan', 'joint_head_tilt']
-            goal_position.trajectory.points = [goal_point]
-            goal_position.trajectory.header.stamp = self.get_clock().now().to_msg()
-            
-            # self.get_logger().info(f"joint info: {goal_point}")
-
-            #request movement
-            self._follow_joint_trajectory_action_client.send_goal_async(goal_position)
-            # self.get_logger().info(f"joint info: {pan_joint_goal}, {tilt_joint_goal}")
+            self.move_to(state, camera_pan, camera_tilt)
         
 
 def main():
     time.sleep(5) # Allows time for realsense camera to boot up before this node becomes active
     rclpy.init()
     node = TurnToFrame()
-    # node.main()
     
     try:
         rclpy.spin(node)
