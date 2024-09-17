@@ -30,7 +30,7 @@ class FibonacciActionClient(Node):
     def send_goal(self):
         goal_msg = Frame.Goal()
         goal_msg.stopped = False
-        goal_msg.frame = 'wrist_top'
+        goal_msg.frame = 'link_gripper_finger_right'
 
         self._action_client.wait_for_server()
 

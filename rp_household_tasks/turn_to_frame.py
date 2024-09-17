@@ -131,8 +131,7 @@ class TurnToFrame(Node):
             self,
             Frame,
             '/turn_to_frame_status',
-            self.turn_to_frame_callback,
-            callback_group=ReentrantCallbackGroup()
+            self.turn_to_frame_callback
         )
         
         time_period = 0.1 #seconds
