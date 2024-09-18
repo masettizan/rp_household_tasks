@@ -26,7 +26,7 @@ Guide to running code: (always remeber to colcon build and source on the first r
 ------------------------------
 
 TIP: remeber to download the supplementry code ['rp_household_tasks_msgs'](https://github.com/masettizan/rp_household_tasks_msgs) 
-as it holds the actions structure: 
+as it holds the actions structure
 
 The Node 'turn_to_frame' functions to have the robots camera turn to a given frame, which can be set as a parameter
 or changed with writing an action client to request the change to a new frame. One can also request the robot to stop
