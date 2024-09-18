@@ -1,10 +1,10 @@
+import os
+
 from launch import LaunchDescription
 from launch_ros.actions import Node
-import os
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():    # a launcher for the chatbot's input and output
@@ -43,13 +43,11 @@ def generate_launch_description():    # a launcher for the chatbot's input and o
         output='screen',
         )
 
-
-    
     return LaunchDescription([
         #say that 5 times in a row
         stretch_driver_launch,
         turn_to_frame,
-        # d435i_launch,
-        # stretch_aruco,
+        d435i_launch,
+        stretch_aruco,
         # rviz_node
     ])

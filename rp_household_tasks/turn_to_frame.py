@@ -23,51 +23,54 @@ from control_msgs.action import FollowJointTrajectory
 from rp_houshold_tasks_msgs.action import Frame
 from math import atan2
 
-# from stretch_core.keyboard import KBHit
-
-# gives position information about base_link
+# access to frame transformations between 'camera_link' and a given 'frame_param'
+# returns information on how to transform 'camera_link' to face given 'frame_param'
 class FrameListener(Node):
 
     def __init__(self):
         super().__init__('frame_listener')
 
-        frame_param = 'camera_link'
-        self.declare_parameter('frame', frame_param)
-        self.frame_param = self.get_parameter('frame').get_parameter_value().string_value
+        # declare and acquire frame parameter
+        self.frame_param = self.declare_parameter(
+          'frame', 'base_link').get_parameter_value().string_value
 
-        self.get_logger().info(f'Frame: {self.frame_param}')
+        self.get_logger().info(f'frame: {self.frame_param}')
 
         self.buffer = Buffer()
         self.listener = TransformListener(self.buffer, self)
 
-        self.position = None #change none
-        # self.kb_input = KBHit()
+        # if a valid transformation between 'camera_link' and 'frame_param' is found
+        self.position = None
 
         time_period = 0.1 #seconds
         self.timer = self.create_timer(time_period, self.on_timer, callback_group=ReentrantCallbackGroup())
 
-    # get difference between camera link and the frame param
+    # get difference between 'camera_link' and the 'frame_param'
     def on_timer(self):
+        # store frame names in variables that will be used to compute transformations
+        target_frame = 'camera_link'
+        source_frame = self.frame_param
+
         try:
-            now = Time()
+            # look up for the transformation between target_frame and source_frame
             position = self.buffer.lookup_transform(
-                target_frame='camera_link',
-                source_frame=self.frame_param, #switching 
-                time=now,
+                target_frame=target_frame,
+                source_frame=source_frame, 
+                time=Time(),
                 timeout=Duration(seconds=1.0)
             )
+            # assign tranformation to global variable
             self.position = position
-            self.get_logger().info(
-                f'diff: {position}'
-            )
+            self.get_logger().info(f'diff: {position}')
         except TransformException as ex:
             self.get_logger().info(
-                f'Could not tranform "camera_link" to "{self.frame_param}": {ex}'
+                f'Could not tranform "{target_frame}" to "{source_frame}": {ex}'
             )
     
-    # return the position
+    # return position information
+    # if no position is found within 5 seconds, stop looking and return None
     def get_position(self, total_time = 0.0):
-        total_time = 0
+        total_time = total_time
         while (total_time < 5):
             if self.position is not None:
                 return self.position.transform
@@ -76,33 +79,30 @@ class FrameListener(Node):
             time.sleep(.1)
 
         self.get_logger().error(
-            f'Could not tranform "camera_link" to "{self.frame_param}" and ran out of time'
+            f'Could not get tranformation from "camera_link" to "{self.frame_param}" because we ran out of time'
         )
         return None
-        
-    def change_goal_frame(self, new_goal):
-        self.get_logger().info(
-                f'NEW GFOAL \n\n\n\n\n'
-            )
-        self.frame_param = new_goal
+    
+    # change value of 'frame_param'
+    def change_goal_frame(self, new_goal_frame):
+        self.frame_param = new_goal_frame
 
 # turn the camera to the frame 
 class TurnToFrame(Node):
 
     def __init__(self):
         super().__init__('turn_to_frame')
-        
+        # initialize transformation listeners
         self.joint_state = JointState()
-
-        # keep communicating updated camera_link position
         self.frame_position = FrameListener()
-        # subscribe to joint state updates
-        self.joint_state_subscriber = self.create_subscription(
+
+        # subscribe to 'joint_state' updates
+        self._joint_state_subscriber = self.create_subscription(
             JointState, 
             "/joint_states", 
-            self.callback, 1
+            self.joint_state_callback, 1
         )
-        self.joint_state_subscriber
+        self._joint_state_subscriber # avoid uncalled variable error
         
         # connect to action client to move camera
         self._follow_joint_trajectory_action_client = ActionClient(
@@ -110,20 +110,21 @@ class TurnToFrame(Node):
             FollowJointTrajectory, 
             '/stretch_controller/follow_joint_trajectory',
         )
+        # check if action client connected to it's action server
         server_reached = self._follow_joint_trajectory_action_client.wait_for_server(timeout_sec=60.0)
+        if not server_reached: 
+            # if unable to connect after 60 secs give up and exit program
+            self.get_logger().error('Unable to connect to action server, time out was exceeded')
+            sys.exit()
 
-        # spin multiple things
+        # spin multiple Nodes to run code in parallel
         exe = rclpy.executors.MultiThreadedExecutor(num_threads=4)
         exe.add_node(self.frame_position)
         exe.add_node(self)
         exe_thread = threading.Thread(target=exe.spin, daemon=True)
         exe_thread.start()
-
-        # connect to the motion action server
-        if not server_reached:
-            self.get_logger().error('Unable to connect to action server, time out was exceeded')
-            sys.exit()
-
+    
+        # boolean value : has the program been requested to stop
         self.stopped = False
         
         # establish action server to start/stop/change frame
@@ -137,22 +138,24 @@ class TurnToFrame(Node):
         time_period = 0.1 #seconds
         self.timer = self.create_timer(time_period, self.on_timer)
 
-    # set joint_state to global variable
-    def callback(self, joint_state):
+    # set info from joint_state subscriber to global variable
+    def joint_state_callback(self, joint_state):
         self.joint_state = joint_state
 
-    # action server callback, handle request
+    # action server callback, handle requests
     def turn_to_frame_callback(self, goal_handle):
-        self.get_logger().info(f"executing turn to frame callback {goal_handle.request}")
+        # set global values to given request values
         self.frame_position.change_goal_frame(goal_handle.request.frame)
         self.stopped = goal_handle.request.stopped
 
         self.get_logger().info(f"Changing frame to {self.frame_position.frame_param}")
+        # request handled successfully
         goal_handle.succeed()
         result = Frame.Result()
-        time.sleep(0.0)
+
         return result
 
+    # move camera to given pan and tilt positions 
     def move_to(self, joint_state: JointState, camera_pan: float, camera_tilt: float):
         goal_position = FollowJointTrajectory.Goal()
 
@@ -175,27 +178,24 @@ class TurnToFrame(Node):
         goal_position.trajectory.joint_names = ['joint_head_pan', 'joint_head_tilt']
         goal_position.trajectory.points = [goal_point]
         goal_position.trajectory.header.stamp = self.get_clock().now().to_msg()
-        
-        # self.get_logger().info(f"joint info: {goal_point}")
 
         #request movement
         self._follow_joint_trajectory_action_client.send_goal_async(goal_position)
-        # self.get_logger().info(f"joint info: {pan_joint_goal}, {tilt_joint_goal}")
 
-    # every 0.1 seconds run main
+    # main: move camera to target every 0.1 seconds
     def on_timer(self):
-        self.get_logger().info(f"PROGRAM IS STOPPED {self.stopped}")
+        # check if the program was request to stop through action server
         if self.stopped:
             return
-    
-        position = self.frame_position.get_position()
 
-        if position is None: # dont look: haven't seen TF in 5 seconds
+        # get transform between 'camera_link' and 'frame_param'
+        position = self.frame_position.get_position()
+        # if we haven't seen TF in 5 seconds, don't look
+        if position is None: 
             return 
 
         # calculate camera pan movement -- is z or y needed?
         camera_pan = -1 * atan2(position.translation.z, position.translation.x)
-
         # calculate camera tilt movement -- is y or z needed?
         camera_tilt = atan2(position.translation.y, position.translation.x)
 
@@ -203,6 +203,7 @@ class TurnToFrame(Node):
         camera_pan = np.sign(camera_pan) * np.min([.1, abs(camera_pan)])
         camera_tilt = np.sign(camera_tilt) * np.min([.1, abs(camera_tilt)])
 
+        # assign global variable to local variable to avoid conflicts
         state = self.joint_state
         # if the state is active
         if (state is not None):
@@ -210,10 +211,9 @@ class TurnToFrame(Node):
         
 
 def main():
-    time.sleep(5) # Allows time for realsense camera to boot up before this node becomes active
+    time.sleep(5) # Allow time for realsense camera to boot up before this node becomes active
     rclpy.init()
     node = TurnToFrame()
-    
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

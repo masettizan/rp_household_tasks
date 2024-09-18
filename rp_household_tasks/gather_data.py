@@ -47,10 +47,7 @@ class FrameListener(Node):
                 time=now,
                 timeout=rclpy.duration.Duration(seconds=1.0)
             )
-            self.position = position
-            # self.get_logger().info(
-            #     f'WE OUT HERE FRAME LISTENING: x: {position.transform.translation.x} y: {position.transform.translation.y}'
-            # )
+            self.position = position 
         except TransformException as ex:
             self.get_logger().info(
                 f'Could not tranform "map" to "base_link": {ex}'
@@ -100,11 +97,7 @@ class GatherData(Node):
 
         # keep communicating updated base_link position
         self.base_link_position = FrameListener()
-        self.ic = ImageConverter()
-        # self.image_subscriber = self.create_subscription(Image, '/camera/color/image_raw', self.get_image, 10)
-
-        # self.cv_image = None
-        # self.bridge = CvBridge()
+        self.ic = ImageConverter() 
 
         exe = rclpy.executors.MultiThreadedExecutor()
         exe.add_node(self.base_link_position)
@@ -188,11 +181,6 @@ class GatherData(Node):
         else:
             self.get_logger().error('something went wrong -_-')
 
-    # def get_image(self, data):
-    #     path = "/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/"
-    #     self.cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-    #     self.get_logger().info("HERE I AM")
-
     # run main code
     def main(self):
 
@@ -203,9 +191,7 @@ class GatherData(Node):
         time.sleep(1)
         # scan with camera and write to file
         rclpy.spin_once(self.ic)
-        # self.get_logger().info(f"cv image: {self.cv_image} ")
-        # cv2.imwrite('/home/hello-robot/ament_ws/src/rp_household_tasks/rp_household_tasks/image.png', self.cv_image)
-
+        
         # B -> C
         self.source_to_target("C")
 
