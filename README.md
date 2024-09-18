@@ -39,6 +39,8 @@ Guide to running code: (always remeber to colcon build and source on the first r
 - create action client code, and example of how that code would look and interact with the 'turn_to_frame' 
   code can be seen in 'example_client.py'
 
+- look to 'rqt_tf_tree' or (frames on Rviz2) to see which frames are avalible to have the robot look to on your robot
+
 - add file to 'setup.py' in the same form as 'example_client.py' is written in the file
 
 - run launch file : 'ros2 launch rp_household_tasks turn_to_camera.launch.py' 
